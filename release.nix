@@ -60,7 +60,16 @@ let
   } // displays self);
   ihaskellEnv = haskellPackages.ghcWithPackages (self: [ self.ihaskell ] ++ packages self);
   rEnv = nixpkgs.rWrapper.override {
-    packages = rPackages nixpkgs.rPackages;
+    packages = [nixpkgs.rPackages.JuniperKernel] ++ (rPackages nixpkgs.rPackages);
+  };
+  jupyterRKernel = nixpkgs.stdenv.mkDerivation {
+    name = "jupyterRKernel";
+    buildInputs = [nixpkgs.pythonPackages.notebook rEnv];
+    unpackPhase = ":";
+    installPhase = ''
+      export HOME=$TMP
+      ${rEnv}/bin/R --slave -e "JuniperKernel::installJuniper(prefix='$out')"
+    '';
   };
   jupyter = nixpkgs.python3.withPackages (ps: [ ps.jupyter ps.notebook ] ++ pythonPackages ps);
   ihaskellSh = cmd: extraArgs: nixpkgs.writeScriptBin "ihaskell-${cmd}" ''
@@ -68,12 +77,13 @@ let
     export GHC_PACKAGE_PATH="$(echo ${ihaskellEnv}/lib/*/package.conf.d| tr ' ' ':'):$GHC_PACKAGE_PATH"
     export PATH="${nixpkgs.stdenv.lib.makeBinPath ([ ihaskellEnv jupyter ] ++ systemPackages nixpkgs)}:$PATH"
     $(cat ${rEnv}/bin/R | sed -n 2p)
+    export JUPYTER_PATH=${jupyterRKernel}/share/jupyter
     ${ihaskellEnv}/bin/ihaskell install -l $(${ihaskellEnv}/bin/ghc --print-libdir) --use-rtsopts="${rtsopts}" && ${jupyter}/bin/jupyter ${cmd} ${extraArgs} "$@"
   '';
 in
 nixpkgs.buildEnv {
   name = "ihaskell-with-packages";
-  buildInputs = [ nixpkgs.makeWrapper rEnv ];
+  buildInputs = [ nixpkgs.makeWrapper jupyterRKernel ];
   paths = [ ihaskellEnv jupyter ];
   postBuild = ''
     for prg in $out/bin"/"*;do
