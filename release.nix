@@ -75,8 +75,8 @@ let
   ihaskellSh = cmd: extraArgs: nixpkgs.writeScriptBin "ihaskell-${cmd}" ''
     #! ${nixpkgs.stdenv.shell}
     export GHC_PACKAGE_PATH="$(echo ${ihaskellEnv}/lib/*/package.conf.d| tr ' ' ':'):$GHC_PACKAGE_PATH"
-    export PATH="${nixpkgs.stdenv.lib.makeBinPath ([ ihaskellEnv jupyter ] ++ systemPackages nixpkgs)}:$PATH"
-    $(cat ${rEnv}/bin/R | sed -n 2p)
+    export PATH="${nixpkgs.stdenv.lib.makeBinPath ([ ihaskellEnv jupyter rEnv ] ++ systemPackages nixpkgs)}:$PATH"
+    $(cat ${rEnv}/bin/R | grep 'export R_LIBS_SITE')
     export JUPYTER_PATH=${jupyterRKernel}/share/jupyter
     ${ihaskellEnv}/bin/ihaskell install -l $(${ihaskellEnv}/bin/ghc --print-libdir) --use-rtsopts="${rtsopts}" && ${jupyter}/bin/jupyter ${cmd} ${extraArgs} "$@"
   '';
