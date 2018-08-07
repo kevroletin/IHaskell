@@ -56,7 +56,7 @@ data KernelConfig m output result =
          { 
          -- | Info on the language of the kernel.
          kernelLanguageInfo :: LanguageInfo
-         -- | Write all the files into the kernel directory, including `kernel.js`, `logo-64x64.png`, and any
+         -- | Write all the files into the kernel directory, including `kernel.js`, `logo-64x64.svg`, and any
          -- other required files. The directory to write to will be passed to this function, and the return
          -- value should be the kernelspec to be written to `kernel.json`.
          , writeKernelspec :: FilePath -> IO KernelSpec
@@ -163,7 +163,12 @@ replyTo :: MonadIO m
         -> Message
         -> MessageHeader
         -> m Message
-replyTo config _ _ KernelInfoRequest{} replyHeader =
+replyTo config _ interface KernelInfoRequest{} replyHeader = do
+  let send = writeChan (iopubChannel interface)
+
+  idleHeader <- dupHeader replyHeader StatusMessage
+  liftIO . send $ PublishStatus idleHeader Idle
+
   return
     KernelInfoReply
       { header = replyHeader
@@ -172,6 +177,7 @@ replyTo config _ _ KernelInfoRequest{} replyHeader =
       , implementationVersion = kernelImplVersion config
       , banner = kernelBanner config
       , protocolVersion = kernelProtocolVersion config
+      , status = Ok
       }
 
 replyTo config _ _ CommInfoRequest{} replyHeader =
@@ -198,12 +204,9 @@ replyTo config execCount interface req@ExecuteRequest { getCode = code } replyHe
                                       sendOutput x =
                                                       send $ PublishDisplayData
                                                                outputHeader
-                                                               (languageName $ kernelLanguageInfo
-                                                                                 config)
                                                                (displayOutput config x)
                                   in run config code clearOutput sendOutput
-  liftIO . send $ PublishDisplayData outputHeader (languageName $ kernelLanguageInfo config)
-                    (displayResult config res)
+  liftIO . send $ PublishDisplayData outputHeader (displayResult config res)
 
 
   idleHeader <- dupHeader replyHeader StatusMessage

@@ -1,5 +1,5 @@
 name:                ipython-kernel
-version:             0.9.0.2
+version:             0.9.1.0
 synopsis:            A library for creating kernels for IPython frontends
 
 description:         ipython-kernel is a library for communicating with frontends for the interactive IPython framework. It is used extensively in IHaskell, the interactive Haskell environment.
@@ -54,29 +54,31 @@ library
 
 -- Example program
 executable simple-calc-example
-  hs-source-dirs: examples
-  main-is:        Calc.hs
-  build-depends:  ipython-kernel,
-                  base           ,
-                  filepath       ,
-                  mtl            ,
-                  parsec         ,
-                  text           ,
-                  transformers
+  hs-source-dirs:   examples
+  main-is:          Calc.hs
+  default-language: Haskell2010
+  build-depends:    ipython-kernel ,
+                    base           ,
+                    filepath       ,
+                    mtl            ,
+                    parsec         ,
+                    text           ,
+                    transformers
 
   if !flag(examples)
     buildable: False
 
 executable fun-calc-example
-  hs-source-dirs: examples
-  main-is:        Simple.hs
-  build-depends:  ipython-kernel,
-                  base           ,
-                  filepath       ,
-                  mtl            ,
-                  parsec         ,
-                  text           ,
-                  transformers
+  hs-source-dirs:   examples
+  main-is:          Simple.hs
+  default-language: Haskell2010
+  build-depends:    ipython-kernel ,
+                    base           ,
+                    filepath       ,
+                    mtl            ,
+                    parsec         ,
+                    text           ,
+                    transformers
 
   if !flag(examples)
     buildable: False

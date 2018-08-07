@@ -54,11 +54,10 @@ let
     ghc-parser        = self.callCabal2nix "ghc-parser" ghc-parser-src {};
     ipython-kernel    = self.callCabal2nix "ipython-kernel" ipython-kernel-src {};
 
-    haskell-src-exts  = self.haskell-src-exts_1_20_2;
-
     static-canvas     = nixpkgs.haskell.lib.doJailbreak super.static-canvas;
   } // displays self);
   ihaskellEnv = haskellPackages.ghcWithPackages (self: [ self.ihaskell ] ++ packages self);
+  notebook = nixpkgs.python3.withPackages (ps: [ ps.notebook ] ++ pythonPackages ps);
   rEnv = nixpkgs.rWrapper.override {
     packages = [nixpkgs.rPackages.JuniperKernel] ++ (rPackages nixpkgs.rPackages);
   };
@@ -71,24 +70,23 @@ let
       ${rEnv}/bin/R --slave -e "JuniperKernel::installJuniper(prefix='$out')"
     '';
   };
-  jupyter = nixpkgs.python3.withPackages (ps: [ ps.jupyter ps.notebook ] ++ pythonPackages ps);
   ihaskellSh = cmd: extraArgs: nixpkgs.writeScriptBin "ihaskell-${cmd}" ''
     #! ${nixpkgs.stdenv.shell}
     export GHC_PACKAGE_PATH="$(echo ${ihaskellEnv}/lib/*/package.conf.d| tr ' ' ':'):$GHC_PACKAGE_PATH"
-    export PATH="${nixpkgs.stdenv.lib.makeBinPath ([ ihaskellEnv jupyter rEnv ] ++ systemPackages nixpkgs)}:$PATH"
+    export PATH="${nixpkgs.stdenv.lib.makeBinPath ([ ihaskellEnv notebook rEnv ] ++ systemPackages nixpkgs)}:$PATH"
     $(cat ${rEnv}/bin/R | grep 'export R_LIBS_SITE')
     export JUPYTER_PATH=${jupyterRKernel}/share/jupyter
-    ${ihaskellEnv}/bin/ihaskell install -l $(${ihaskellEnv}/bin/ghc --print-libdir) --use-rtsopts="${rtsopts}" && ${jupyter}/bin/jupyter ${cmd} ${extraArgs} "$@"
+    ${ihaskellEnv}/bin/ihaskell install -l $(${ihaskellEnv}/bin/ghc --print-libdir) --use-rtsopts="${rtsopts}" && ${notebook}/bin/jupyter ${cmd} ${extraArgs} "$@"
   '';
 in
 nixpkgs.buildEnv {
   name = "ihaskell-with-packages";
   buildInputs = [ nixpkgs.makeWrapper jupyterRKernel ];
-  paths = [ ihaskellEnv jupyter ];
+  paths = [ ihaskellEnv notebook ];
   postBuild = ''
     for prg in $out/bin"/"*;do
       if [[ -f $prg && -x $prg ]]; then
-        wrapProgram $prg --set PYTHONPATH "$(echo ${jupyter}/lib/*/site-packages)"
+        wrapProgram $prg --set PYTHONPATH "$(echo ${notebook}/lib/*/site-packages)"
       fi
     done
     ln -s ${ihaskellSh "notebook" ""}/bin/ihaskell-notebook $out/bin/

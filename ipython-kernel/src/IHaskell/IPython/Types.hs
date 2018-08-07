@@ -276,6 +276,7 @@ data LanguageInfo =
          , languageVersion :: String        -- ^ GHC 7.6.3
          , languageFileExtension :: String        -- ^ .hs
          , languageCodeMirrorMode :: String        -- ^ 'ihaskell'. can be 'null'
+         , languagePygmentsLexer :: String
          }
   deriving (Show, Eq)
 
@@ -299,6 +300,7 @@ data Message =
                  , implementation :: String -- ^ e.g. IHaskell
                  , implementationVersion :: String -- ^ The version of the implementation
                  , languageInfo :: LanguageInfo
+                 , status :: ExecuteReplyStatus
                  }
              |
              -- | A request from a frontend for information about the comms.
@@ -366,7 +368,6 @@ data Message =
              |
                PublishDisplayData
                  { header :: MessageHeader
-                 , source :: String                      -- ^ The name of the data source.
                  , displayData :: [DisplayData]          -- ^ A list of data representations.
                  }
              |
@@ -562,11 +563,18 @@ type Height = Int
 
 data MimeType = PlainText
               | MimeHtml
+              | MimeBmp Width Height
               | MimePng Width Height
               | MimeJpg Width Height
+              | MimeGif Width Height
               | MimeSvg
               | MimeLatex
+              | MimeMarkdown
               | MimeJavascript
+              | MimeJson
+              | MimeVega
+              | MimeVegalite
+              | MimeVdom
   deriving (Eq, Typeable, Generic)
 
 -- Extract the plain text from a list of displays.
@@ -581,17 +589,31 @@ extractPlain disps =
 instance Show MimeType where
   show PlainText = "text/plain"
   show MimeHtml = "text/html"
+  show (MimeBmp _ _) = "image/bmp"
   show (MimePng _ _) = "image/png"
   show (MimeJpg _ _) = "image/jpeg"
+  show (MimeGif _ _) = "image/gif"
   show MimeSvg = "image/svg+xml"
   show MimeLatex = "text/latex"
+  show MimeMarkdown = "text/markdown"
   show MimeJavascript = "application/javascript"
+  show MimeJson = "application/json"
+  show MimeVega = "application/vnd.vega.v2+json"
+  show MimeVegalite = "application/vnd.vegalite.v2+json"
+  show MimeVdom = "application/vdom.v1+json"
 
 instance Read MimeType where
   readsPrec _ "text/plain" = [(PlainText, "")]
   readsPrec _ "text/html" = [(MimeHtml, "")]
+  readsPrec _ "image/bmp" = [(MimeBmp 50 50, "")]
   readsPrec _ "image/png" = [(MimePng 50 50, "")]
   readsPrec _ "image/jpg" = [(MimeJpg 50 50, "")]
+  readsPrec _ "image/gif" = [(MimeGif 50 50, "")]
   readsPrec _ "image/svg+xml" = [(MimeSvg, "")]
   readsPrec _ "text/latex" = [(MimeLatex, "")]
+  readsPrec _ "text/markdown" = [(MimeMarkdown, "")]
   readsPrec _ "application/javascript" = [(MimeJavascript, "")]
+  readsPrec _ "application/json" = [(MimeJson, "")]
+  readsPrec _ "application/vnd.vega.v2+json" = [(MimeVega, "")]
+  readsPrec _ "application/vnd.vegalite.v1+json" = [(MimeVegalite, "")]
+  readsPrec _ "application/vdom.v1+json" = [(MimeVdom, "")]

@@ -8,11 +8,14 @@ module IHaskell.IPython.Message.Writer (ToJSON(..)) where
 
 import           Data.Aeson
 import           Data.Aeson.Types (Pair)
+import           Data.Aeson.Parser (json)
 import           Data.Map (Map)
 import           Data.Monoid (mempty)
 import           Data.Text (Text, pack)
+import           Data.Text.Encoding (encodeUtf8)
 import qualified Data.Map               as Map
 import           IHaskell.IPython.Types
+import           Data.Maybe (fromMaybe)
 
 instance ToJSON LanguageInfo where
   toJSON info = object
@@ -20,6 +23,7 @@ instance ToJSON LanguageInfo where
                   , "version" .= languageVersion info
                   , "file_extension" .= languageFileExtension info
                   , "codemirror_mode" .= languageCodeMirrorMode info
+                  , "pygments_lexer" .= languagePygmentsLexer info
                   ]
 
 -- Convert message bodies into JSON.
@@ -31,6 +35,7 @@ instance ToJSON Message where
       , "implementation" .= implementation rep
       , "implementation_version" .= implementationVersion rep
       , "language_info" .= languageInfo rep
+      , "status" .= show (status rep)
       ]
 
   toJSON CommInfoReply
@@ -38,7 +43,9 @@ instance ToJSON Message where
     , commInfo = commInfo
     } =
     object
-      [ "comms" .= Map.map (\comm -> object ["target_name" .= comm]) commInfo ]
+      [ "comms" .= Map.map (\comm -> object ["target_name" .= comm]) commInfo
+      , "status" .= string "ok"
+      ]
 
   toJSON ExecuteRequest
     { getCode = code
@@ -76,9 +83,9 @@ instance ToJSON Message where
     object ["execution_state" .= executionState]
   toJSON PublishStream { streamType = streamType, streamContent = content } =
     object ["data" .= content, "name" .= streamType]
-  toJSON PublishDisplayData { source = src, displayData = datas } =
+  toJSON PublishDisplayData { displayData = datas } =
     object
-      ["source" .= src, "metadata" .= object [], "data" .= object (map displayDataToJson datas)]
+      ["metadata" .= object [], "data" .= object (map displayDataToJson datas)]
 
   toJSON PublishOutput { executionCount = execCount, reprText = reprText } =
     object
@@ -109,7 +116,9 @@ instance ToJSON Message where
       ]
 
   toJSON ShutdownReply { restartPending = restart } =
-    object ["restart" .= restart]
+    object ["restart" .= restart
+           , "status" .= string "ok"
+           ]
 
   toJSON ClearOutput { wait = wait } =
     object ["wait" .= wait]
@@ -132,7 +141,9 @@ instance ToJSON Message where
     object ["comm_id" .= commUuid req, "data" .= commData req]
 
   toJSON req@HistoryReply{} =
-    object ["history" .= map tuplify (historyReply req)]
+    object ["history" .= map tuplify (historyReply req)
+           , "status" .= string "ok"
+           ]
     where
       tuplify (HistoryReplyElement sess linum res) = (sess, linum, case res of
                                                                      Left inp         -> toJSON inp
@@ -165,6 +176,12 @@ instance ToJSON StreamType where
 
 -- | Convert a MIME type and value into a JSON dictionary pair.
 displayDataToJson :: DisplayData -> (Text, Value)
+displayDataToJson (DisplayData MimeJson dataStr) = 
+    pack (show MimeJson) .= fromMaybe (String "") (decodeStrict (encodeUtf8 dataStr) :: Maybe Value)
+displayDataToJson (DisplayData MimeVegalite dataStr) = 
+    pack (show MimeVegalite) .= fromMaybe (String "") (decodeStrict (encodeUtf8 dataStr) :: Maybe Value)
+displayDataToJson (DisplayData MimeVega dataStr) = 
+    pack (show MimeVega) .= fromMaybe (String "") (decodeStrict (encodeUtf8 dataStr) :: Maybe Value)
 displayDataToJson (DisplayData mimeType dataStr) =
   pack (show mimeType) .= String dataStr
 
